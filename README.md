@@ -46,26 +46,38 @@ Running with Docker offers a convenient way to set up your environment without i
 2. Pull the built image:
 
     ```bash
-    docker pull dasbd72/xv6:riscv64
+    # For amd64 architecture (e.g., most Intel/AMD processors):
+    docker pull dasbd72/xv6:amd64
+    # For arm64v8 architecture (e.g., Apple Silicon):
+    docker pull dasbd72/xv6:arm64v8
     ```
 
 3. Run the Docker container with the following command:
     1. For MacOS and Linux:
 
         ```bash
-        docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/riscv64 dasbd72/xv6:riscv64
+        # For amd64 architecture (e.g., most Intel/AMD processors):
+        docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
+        # For arm64v8 architecture (e.g., Apple Silicon):
+        docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
         ```
 
     2. For Windows PowerShell:
 
         ```bash
-        docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/riscv64 dasbd72/xv6:riscv64
+        # For amd64 architecture (e.g., most Intel/AMD processors):
+        docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
+        # For arm64v8 architecture (e.g., Apple Silicon):
+        docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
         ```
 
     3. For Windows CMD:
 
         ```bash
-        docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/riscv64 dasbd72/xv6:riscv64
+        # For amd64 architecture (e.g., most Intel/AMD processors):
+        docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
+        # For arm64v8 architecture (e.g., Apple Silicon):
+        docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
         ```
 
 4. Start xv6:
