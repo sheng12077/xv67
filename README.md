@@ -59,7 +59,7 @@ Running with Docker offers a convenient way to set up your environment without i
         # For amd64 architecture (e.g., most Intel/AMD processors):
         docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
         # For arm64v8 architecture (e.g., Apple Silicon):
-        docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
+        docker run -it --rm -v $(pwd):/xv6 -v /xv6/mkfs -v $(pwd)/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64/v8 dasbd72/xv6:arm64v8
         ```
 
     2. For Windows PowerShell:
@@ -68,7 +68,7 @@ Running with Docker offers a convenient way to set up your environment without i
         # For amd64 architecture (e.g., most Intel/AMD processors):
         docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
         # For arm64v8 architecture (e.g., Apple Silicon):
-        docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
+        docker run -it --rm -v ${PWD}:/xv6 -v /xv6/mkfs -v ${PWD}/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64/v8 dasbd72/xv6:arm64v8
         ```
 
     3. For Windows CMD:
@@ -77,7 +77,7 @@ Running with Docker offers a convenient way to set up your environment without i
         # For amd64 architecture (e.g., most Intel/AMD processors):
         docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/amd64 dasbd72/xv6:amd64
         # For arm64v8 architecture (e.g., Apple Silicon):
-        docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64v8 dasbd72/xv6:arm64v8
+        docker run -it --rm -v %cd%:/xv6 -v /xv6/mkfs -v %cd%/mkfs/mkfs.c:/xv6/mkfs/mkfs.c -w /xv6 --platform linux/arm64/v8 dasbd72/xv6:arm64v8
         ```
 
 4. Start xv6:
