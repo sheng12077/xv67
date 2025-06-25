@@ -1,5 +1,7 @@
 # Guide to Students
 
+You must read this document carefully before starting any of your assignment.
+
 ## xv6 Overview
 
 xv6 is a simple Unix-like operating system developed for educational purposes. It is designed to be small and easy to understand, making it an ideal platform for learning about operating systems.
@@ -11,6 +13,11 @@ Git is a version control system that allows you to track changes in your code an
 We will use Git to manage our xv6 codebase, any updates to the template will be pushed to the repository, and we will announce if there are any changes.
 
 Learn to cooperate with your team members using Git.
+
+## Plagiarism Policy
+
+- Never show your code to others.
+- If your code is found to be similar to others, including sources from the internet, and you cannot answer questions properly about your code during the demo, you will be considered as plagiarizing and will receive a score of 0 for the assignment.
 
 ## How to run xv6
 
