@@ -4,7 +4,7 @@
 
 xv6 is a simple Unix-like operating system developed for educational purposes. It is designed to be small and easy to understand, making it an ideal platform for learning about operating systems.
 
-## git Overview
+## Git Overview
 
 Git is a version control system that allows you to track changes in your code and collaborate with others.
 
