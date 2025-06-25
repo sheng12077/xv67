@@ -33,7 +33,7 @@ Learn to cooperate with your team members using Git.
 
 4. To quit xv6, press `<Ctrl+a x>`.
 
-### Run with Docker
+### Run with Docker (Recommended)
 
 Running with Docker offers a convenient way to set up your environment without installing dependencies directly on your machine. While its performance (execution time) might not match native execution, it generally won't compromise correctness.
 
