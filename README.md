@@ -4,15 +4,50 @@ You must read this document carefully before starting any of your assignment.
 
 ## xv6 Overview
 
-xv6 is a simple Unix-like operating system developed for educational purposes. It is designed to be small and easy to understand, making it an ideal platform for learning about operating systems.
+- What is xv6?
+
+  xv6 is a simple Unix-like operating system developed for educational purposes. It is designed to be small and easy to understand, making it an ideal platform for learning about operating systems.
+
+- What is QEMU?
+
+  xv6 runs on QEMU, which is a machine emulator that allows you to run one operating system of a different architecture on another machine. In this case, we run the riscv64 xv6 operating system on your machine (x86_64 or arm64).
+
+## xv6 Directory Structure
+
+The xv6 directory structure is organized as follows:
+
+```plain
+xv6-Template/
+├── Makefile          # Build instructions for xv6
+├── kernel/           # Kernel source code
+├── user/             # User programs and libraries
+├── mkfs/             # Filesystem creation code
+```
+
+- `kernel/`: Contains the source code for the xv6 kernel, including operating system initialization, process management, system calls, memory management, file system, and device drivers.
+- `user/`: Contains user-level programs and libraries, including the shell, utilities, applications, and other user-space code.
+  - You can also add your own user programs here.
 
 ## Git Overview
 
-Git is a version control system that allows you to track changes in your code and collaborate with others.
+- What is Git?
+  
+  Git is a version control system that allows you to track changes in your code and collaborate with others.
 
-We will use Git to manage our xv6 codebase, any updates to the template will be pushed to the repository, and we will announce if there are any changes.
+  We will use Git to manage our xv6 guides, spec and template. Any updates to the template will be pushed to the repository, and we will announce if there are any changes.
 
-Learn to cooperate with your team members using Git.
+  Learn to cooperate with your team members using Git.
+
+- Basic Git Commands:
+
+  - `git clone <repository-url>`: Clone a remote repository to your local machine.
+  - `git pull`: Fetch and merge changes from the remote repository.
+  - `git add <file>`: Stage changes for commit.
+  - `git commit -m "<message>"`: Commit staged changes with a message.
+  - `git push`: Push committed changes to the remote repository.
+  - `git branch`: List all branches in the repository.
+  - `git branch <branch-name>`: Create a new branch above the current branch.
+  - `git checkout <branch>`: Switch to a different branch.
 
 ## Plagiarism Policy
 
