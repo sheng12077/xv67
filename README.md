@@ -49,10 +49,50 @@ xv6-Template/
   - `git branch <branch-name>`: Create a new branch above the current branch.
   - `git checkout <branch>`: Switch to a different branch.
 
+## Rule for bonus
+
+- The bonus task for MP1 to MP4 is to design your own testcase.
+  - Design your own test cases to test your code.
+  - Also, explain your efforts in your report.
+  - Not all functions need to be tested, just do your best to cover the important parts of your code.
+  - It is good if yours can cover the edge cases that the original test cases do not cover.
+  - Your score will be determined by the completeness of the test cases and your explanation.
+  - Similar to the original test cases, you can separate your test cases into different functions instead of putting everything in one function.
+- Refer to `grade-mp#-public` to see how to write your test cases.
+  - The testing script is written in Python, depending on the `gradelib.py` library.
+  - Follow the format of the original test cases. You can leverage regex to search for patterns in the output.
+  - Testcase for mp3 is more complicated, read `grade-mp3-public` once again before you start.
+
 ## Plagiarism Policy
 
 - Never show your code to others.
 - If your code is found to be similar to others, including sources from the internet, and you cannot answer questions properly about your code during the demo, you will be considered as plagiarizing and will receive a score of 0 for the assignment.
+
+## How to start the specific labs
+
+For example, if you want to start os25 mp1, you can follow these steps:
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/NTHU-LSALAB/xv6-Template.git
+    ```
+
+2. Navigate to the directory:
+
+    ```bash
+    cd xv6-Template
+    ```
+
+3. Checkout the specific branch for the lab:
+
+    ```bash
+    git checkout os25-mp1-template
+    ```
+
+4. Now you can start working on the assignment. The template will provide you with the necessary files and structure to begin
+   - Spec is in file `MP1-spec.md`
+   - Grading script is in `grade-mp1-public`
 
 ## How to run xv6
 
