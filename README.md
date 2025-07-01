@@ -172,3 +172,22 @@ Running with Docker offers a convenient way to set up your environment without i
 
 5. To quit xv6, press `<Ctrl+a x>`.
 6. To exit the Docker container, type `exit` in the terminal.
+
+## How to run the grading scripts
+
+First make sure you are in the working environment of xv6, for example in the Docker container terminal.
+
+Then you can run the grading script with the following command to grade the entire assignment:
+
+```bash
+./grade-mp1-public
+# or ./grade-mp2-public
+# or ./grade-mp3-public
+# or ./grade-mp4-public
+```
+
+If you want to grade a specific test case, you can append the test case name to the command. For example to grade the `trace 32 grep` test case in MP1, you can run:
+
+```bash
+./grade-mp1-public "trace 32 grep"
+```
