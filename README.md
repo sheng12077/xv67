@@ -52,8 +52,7 @@ xv6-Template/
 ## Rule for bonus
 
 - The bonus task for MP1 to MP4 is to design your own testcase.
-  - Design your own test cases to test your code.
-  - Also, explain your efforts in your report.
+  - Explain your efforts in your report.
   - Not all functions need to be tested, just do your best to cover the important parts of your code.
   - It is good if yours can cover the edge cases that the original test cases do not cover.
   - Your score will be determined by the completeness of the test cases and your explanation.
@@ -62,6 +61,7 @@ xv6-Template/
   - The testing script is written in Python, depending on the `gradelib.py` library.
   - Follow the format of the original test cases. You can leverage regex to search for patterns in the output.
   - Testcase for mp3 is more complicated, read `grade-mp3-public` once again before you start.
+- Name your bonus test case script as `grade-mp#-bonus.py`, where `#` is the assignment number (1 to 4).
 
 ## Plagiarism Policy
 
