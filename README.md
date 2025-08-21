@@ -173,6 +173,34 @@ Running with Docker offers a convenient way to set up your environment without i
 5. To quit xv6, press `<Ctrl+a x>`.
 6. To exit the Docker container, type `exit` in the terminal.
 
+### Error on Windows: `/usr/bin/env: 'python3\r': No such file or directory`
+
+If you encounter this error, simply run `git config core.autocrlf false` under the cloned repository directory on windows.
+
+Then remember to **checkout** to a different branch and then back to the current branch, then git will fix the line endings for you.
+
+Sample steps:
+
+```bash
+# I am currently on branch os25-mp1-template
+docker run -it ...
+./grade-mp1-public
+# Error: /usr/bin/env: 'python3\r': No such file or directory
+# This means the line endings are incorrect due to Windows CRLF
+# Exit the container
+exit
+
+# To fix the line endings, run the following commands on your host machine
+git config core.autocrlf false
+git checkout os25-mp2-template
+git checkout os25-mp1-template
+
+# Go back to the Docker container
+docker run -it ...
+./grade-mp1-public
+# Now it should work without the error
+```
+
 ## How to run the grading scripts
 
 First make sure you are in the working environment of xv6, for example in the Docker container terminal.
