@@ -88,31 +88,43 @@ Learn to cooperate with your team members using Git.
 - Never show your code to others.
 - If your code is found to be similar to others, including sources from the internet, and you cannot answer questions properly about your code during the demo, you will be considered as plagiarizing and will receive a score of 0 for the assignment.
 
-## How to start the specific labs
+## Setting up your environment
 
-For example, if you want to start os25 mp1, you can follow these steps:
+Take os25 mp1 as an example, you can follow the steps below to set up your environment:
 
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/NTHU-LSALAB/xv6-Template.git
+    git clone https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6.git xv6
     ```
 
 2. Navigate to the directory:
 
     ```bash
-    cd xv6-Template
+    cd xv6
     ```
 
-3. Checkout the specific branch for the lab:
+3. (Important! For Windows users) Configure Git to handle line endings correctly:
+
+    ```bash
+    git config core.autocrlf false
+    git rm --cached -r .
+    git reset --hard
+    ```
+
+    If you don't do this, you will probably encounter the error `/usr/bin/env: 'python3\r': No such file or directory` when running a script inside the Docker container.
+
+4. Checkout the specific branch for the lab:
 
     ```bash
     git checkout os25-mp1
     ```
 
-4. Now you can start working on the assignment. The template will provide you with the necessary files and structure to begin
+5. Now you can start working on the assignment. The template will provide you with the necessary files and structure to begin
    - Spec is in file `MP1-spec.md`
    - Grading script is in `grade-mp1-public`
+
+6. Follow the [section](#how-to-submit-your-assignment) to setup the submission remote repository.
 
 ## How to run xv6
 
@@ -121,7 +133,7 @@ For example, if you want to start os25 mp1, you can follow these steps:
 1. Clone the repository and navigate to the directory:
 
     ```bash
-    cd xv6-Template
+    cd <your-cloned-repo>
     ```
 
 2. Install the required dependencies
@@ -142,7 +154,7 @@ Running with Docker offers a convenient way to set up your environment without i
 1. Clone the repository and navigate to the directory:
 
     ```bash
-    cd xv6-Template
+    cd <your-cloned-repo>
     ```
 
 2. Pull the built image:
@@ -192,54 +204,6 @@ Running with Docker offers a convenient way to set up your environment without i
 
 5. To quit xv6, press `<Ctrl+a x>`.
 6. To exit the Docker container, type `exit` in the terminal.
-
-### Windows Line Ending Issue
-
-If you're on a Windows machine you will probably encounter the error `/usr/bin/env: 'python3\r': No such file or directory` when running a script inside the Docker container.
-This is a common issue caused by differences in how Windows and Unix-like systems (such as Linux, which Docker uses) handle line endings in text files.
-
-1. Exit the Docker container if you're currently inside it.
-
-    ```bash
-    # Inside the Docker container terminal
-    exit
-    ```
-
-2. Configure Git to Handle Line Endings Correctly
-
-    Run the following command in your terminal (not inside the Docker container):
-
-    ```bash
-    git config core.autocrlf false
-    ```
-
-3. Force Git to Reset the Files
-
-    To apply the new setting to the existing files, you need to make Git "refresh" them. A simple way to do this is to check out a different branch and then immediately switch back to your current working branch.
-
-    For example, if you are working on `os25-mp1`:
-
-    ```bash
-    # In your Windows terminal, inside the xv6-Template directory
-
-    # 1. Switch to any other branch (e.g., os25-mp2)
-    git checkout os25-mp2
-
-    # 2. Switch right back to your original branch
-    git checkout os25-mp1
-    ```
-
-4. Re-run Your Script in Docker
-
-    Now, you can start your Docker container again. Navigate to your project directory and run the grading script that was previously failing. The error should now be resolved.
-
-    ```bash
-    # Start your Docker container again
-    docker run -it --rm -v ${PWD}:/xv6 ...
-
-    # Run the grading script
-    ./grade-mp1-public
-    ```
 
 ## How to run the grading scripts
 
