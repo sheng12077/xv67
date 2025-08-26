@@ -107,7 +107,7 @@ For example, if you want to start os25 mp1, you can follow these steps:
 3. Checkout the specific branch for the lab:
 
     ```bash
-    git checkout os25-mp1-template
+    git checkout os25-mp1
     ```
 
 4. Now you can start working on the assignment. The template will provide you with the necessary files and structure to begin
@@ -217,16 +217,16 @@ This is a common issue caused by differences in how Windows and Unix-like system
 
     To apply the new setting to the existing files, you need to make Git "refresh" them. A simple way to do this is to check out a different branch and then immediately switch back to your current working branch.
 
-    For example, if you are working on `os25-mp1-template`:
+    For example, if you are working on `os25-mp1`:
 
     ```bash
     # In your Windows terminal, inside the xv6-Template directory
 
-    # 1. Switch to any other branch (e.g., os25-mp2-template)
-    git checkout os25-mp2-template
+    # 1. Switch to any other branch (e.g., os25-mp2)
+    git checkout os25-mp2
 
     # 2. Switch right back to your original branch
-    git checkout os25-mp1-template
+    git checkout os25-mp1
     ```
 
 4. Re-run Your Script in Docker
@@ -278,8 +278,8 @@ This is a common issue caused by differences in how Windows and Unix-like system
 4. Push your code to the remote repository:
 
     ```bash
-    # Checkout to your assignment branch, for example os25-mp1-template
-    git checkout os25-mp1-template
+    # Checkout to your assignment branch, for example os25-mp1
+    git checkout os25-mp1
     # Add all your changes
     git add .
     # Commit your changes with a message
