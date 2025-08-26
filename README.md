@@ -81,7 +81,7 @@ Learn to cooperate with your team members using Git.
   - The testing script is written in Python, depending on the `gradelib.py` library.
   - Follow the format of the original test cases. You can leverage regex to search for patterns in the output.
   - Testcase for mp3 is more complicated, read `grade-mp3-public` once again before you start.
-- Name your bonus test case script as `grade-mp#-bonus.py`, where `#` is the assignment number (1 to 4).
+- Name your bonus test case script as `grade-mp#-bonus`, where `#` is the assignment number (1 to 4).
 
 ## Plagiarism Policy
 
