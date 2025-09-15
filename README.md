@@ -227,9 +227,30 @@ Running with Docker offers a convenient way to set up your environment without i
 
 1. Login to the gitea server [git.lsalab.cs.nthu.edu.tw](https://git.lsalab.cs.nthu.edu.tw) with the account we emailed you.
 
-2. Each team has a repository named `os<year>_team<team-id>_xv6`, for example `os24_team01_xv6`. You can find it after logging in.
+2. Add your SSH public key to your account settings. If you don't have an SSH key, you can generate one by following:
 
-3. Add the remote url of your repository to your local git:
+    ```bash
+    # Generate an SSH key if you don't have one
+    ssh-keygen -t ed25519
+
+    # Get your public key and copy it to your clipboard
+    # Windows (PowerShell)
+    cat $env:USERPROFILE\.ssh\id_ed25519.pub
+    # Windows (CMD)
+    type %USERPROFILE%\.ssh\id_ed25519.pub
+    # Linux / MacOS
+    cat ~/.ssh/id_ed25519.pub
+
+    # Add the public key to your account settings on the gitea server
+    ```
+
+    Add the copied public key to the "SSH Keys" section in your account settings.
+
+    ![Add SSH Key](images/add_ssh_key.png)
+
+3. Each team has a repository named `os<year>_team<team-id>_xv6`, for example `os24_team01_xv6`. You can find it after logging in.
+
+4. Add the remote url of your repository to your local git:
 
     ```bash
     # Replace <year> and <team-id> with your actual year and team id
@@ -238,7 +259,7 @@ Running with Docker offers a convenient way to set up your environment without i
     git remote -v
     ```
 
-4. Push your code to the remote repository:
+5. Push your code to the remote repository:
 
     ```bash
     # Checkout to your assignment branch, for example os25-mp1
