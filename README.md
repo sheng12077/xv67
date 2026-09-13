@@ -66,7 +66,7 @@ Learn to cooperate with your team members using Git.
   - We will email you the repository URL and your team ID.
 - You must push to the repository we created for your team.
 - You must push to the remote branch `os<year>-mp<1|2|3|4>`, where `<1|2|3|4>` is the assignment number.
-  - For example for OS 2025, the branch name for MP1 is `os25-mp1`, for MP2 is `os25-mp2`, and so on.
+  - For example for OS 2026, the branch name for MP1 is `os26-mp1`, for MP2 is `os26-mp2`, and so on.
 - You can push multiple commits before the deadline, we will grade the final commit before the deadline.
 
 ## Rule for bonus
@@ -89,12 +89,12 @@ Learn to cooperate with your team members using Git.
 
 ## Setting up your environment
 
-Take os25 mp1 as an example, you can follow the steps below to set up your environment:
+Take os26 mp1 as an example, you can follow the steps below to set up your environment:
 
 1. Clone the repository:
 
     ```bash
-    git clone https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6.git xv6
+    git clone https://git.lsalab.cs.nthu.edu.tw/os26/os26_shared_xv6.git xv6
     ```
 
 2. Navigate to the directory:
@@ -116,7 +116,7 @@ Take os25 mp1 as an example, you can follow the steps below to set up your envir
 4. Checkout the specific branch for the lab:
 
     ```bash
-    git checkout os25-mp1
+    git checkout os26-mp1
     ```
 
 5. Now you can start working on the assignment. The template will provide you with the necessary files and structure to begin
@@ -248,7 +248,7 @@ Running with Docker offers a convenient way to set up your environment without i
 
     ![Add SSH Key](images/add_ssh_key.png)
 
-3. Each team has a repository named `os<year>_team<team-id>_xv6`, for example `os24_team01_xv6`. You can find it after logging in.
+3. Each team has a repository named `os<year>_team<team-id>_xv6`, for example `os26_team01_xv6`. You can find it after logging in.
 
 4. Add the remote url of your repository to your local git:
 
@@ -262,8 +262,8 @@ Running with Docker offers a convenient way to set up your environment without i
 5. Push your code to the remote repository:
 
     ```bash
-    # Checkout to your assignment branch, for example os25-mp1
-    git checkout os25-mp1
+    # Checkout to your assignment branch, for example os26-mp1
+    git checkout os26-mp1
     # Add all your changes
     git add .
     # Commit your changes with a message
@@ -271,10 +271,10 @@ Running with Docker offers a convenient way to set up your environment without i
     # Push your changes to the branch of the remote repository
     # Explanation:
     #   - HEAD means the current branch you are on
-    #   - os25-mp1 means the name of the branch you are going to push to/update to the remote repository
+    #   - os26-mp1 means the name of the branch you are going to push to/update to the remote repository
     git push submit HEAD:<remote-branch-name>
-    # git push submit HEAD:os25-mp1
-    # git push submit HEAD:os25-mp2  # for mp2
-    # git push submit HEAD:os25-mp3  # for mp3
-    # git push submit HEAD:os25-mp4  # for mp4
+    # git push submit HEAD:os26-mp1
+    # git push submit HEAD:os26-mp2  # for mp2
+    # git push submit HEAD:os26-mp3  # for mp3
+    # git push submit HEAD:os26-mp4  # for mp4
     ```
