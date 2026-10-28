@@ -225,3 +225,279 @@ csrrw a0, mscratch, a0
 ```
 如此便恢復被中斷程式原本的 a0 至 a3，同時讓 mscratch 繼續保存 scratch area 地址，供下一次 timer interrupt 使用
 最後`mert`根據 mepc 和 mstatus 中保存的狀態，返回中斷前的 privilege mode 與執行位置
+
+## User Space Interrupt Handler
+### 整體流程
+當 xv6 準備讓 process 返回 user space 時，會執行 `usertrapret()`，`usertrapret()` 將 stvec 設為 uservec，
+並準備 trapframe、sstatus、sepc 與 user page table，接著透過 trampoline.S 中的 userret 恢復 user registers，
+最後使用 sret 返回 U-mode
+
+當 user program 執行期間發生 timer interrupt 時，前一節的 timervec 會將 sip.SSIP 設為 1，
+形成 Supervisor software interrupt，CPU 接受此中斷後根據 stvec 進入 uservec，
+uservec 保存 user registers、切換至 kernel page table 與 kernel stack，再跳至 usertrap()
+
+usertrap() 呼叫 devintr() 判斷中斷類型，如果是由 Machine timer interrupt 轉送而來的 Supervisor software interrupt，
+devintr() 會呼叫 clockintr() 更新系統時間
+
+```mermaid
+flowchart LR
+    A["usertrapret()"]
+    B["stvec = uservec<br/>準備 trapframe"]
+    C["userret + sret"]
+    D["U-mode<br/>User process"]
+    E["Timer interrupt<br/>sip.SSIP = 1"]
+    F["CPU 根據 stvec<br/>進入 uservec"]
+    G["保存 user registers<br/>切換 kernel 環境"]
+    H["usertrap()"]
+    I["devintr()"]
+    J["clockintr()<br/>ticks++"]
+
+    A --> B --> C --> D --> E --> F --> G --> H --> I --> J
+
+    classDef kernel fill:#dbeafe,stroke:#2563eb,color:#111827
+    classDef user fill:#dcfce7,stroke:#16a34a,color:#111827
+    classDef hardware fill:#fef3c7,stroke:#d97706,color:#111827
+    classDef handler fill:#ede9fe,stroke:#7c3aed,color:#111827
+
+    class A,B,H,I,J kernel
+    class C,D user
+    class E,F hardware
+    class G handler
+```
+
+### `usertrapret()`：準備返回 user space
+
+`usertrapret()` 執行時，CPU 位於 S-mode kernel，它首先關閉 interrupt
+```c
+intr_off();
+```
+
+這是因為 xv6 正在切換 trap handler、page table 與 registers，
+如果切換還沒完成就發生 interrupt，CPU 可能使用不完整的 kernel 或 user context
+
+接著，`usertrapret()` 將 trampoline 中 `uservec` 的地址寫入 `stvec`
+```c
+uint64 trampoline_uservec = TRAMPOLINE + (uservec - trampoline);
+w_stvec(trampoline_uservec);
+```
+
+其效果為
+```text
+stvec = uservec 的虛擬地址
+```
+
+這表示未來 user process 發生 Supervisor trap 時，CPU 應該從 `uservec` 開始執行
+
+接著，`usertrapret()` 將 `uservec` 需要的 kernel 資訊寫入目前 process 的 trapframe
+```c
+p->trapframe->kernel_satp = r_satp();
+p->trapframe->kernel_sp = p->kstack + PGSIZE;
+p->trapframe->kernel_trap = (uint64)usertrap;
+p->trapframe->kernel_hartid = r_tp();
+```
+
+這些欄位的用途
+| Trapframe 欄位  | 用途                    |
+| --------------- | ----------------------- |
+| `kernel_satp`   | kernel page table       |
+| `kernel_sp`     | process 的 kernel stack |
+| `kernel_trap`   | `usertrap()` 的地址     |
+| `kernel_hartid` | 目前 hart ID            |
+
+接著設定 `sstatus`
+```c
+unsigned long x = r_sstatus();
+x &= ~SSTATUS_SPP;
+x |= SSTATUS_SPIE;
+w_sstatus(x);
+```
+
+把 `SPP` 清為 0，表示下一次執行 `sret` 時返回 U-mode，`SPIE` 則是用來準備返回後的 interrupt-enable 狀態，
+`usertrapret()` 也會設定
+```c
+w_sepc(p->trapframe->epc);
+```
+
+因此
+```text
+sepc = user process 下一個要執行的 PC
+```
+
+最後`usertrapret()` 跳到 `trampoline.S` 中的 `userret`，
+`userret` 切換到 user page table、恢復 user registers，再執行
+```asm
+sret
+```
+
+CPU 因此從 S-mode 返回 U-mode，並從 `sepc` 保存的 user PC 繼續執行
+
+### CPU 如何進入 `uservec`
+當 user process 執行期間發生 timer interrupt 時，前一節介紹的 M-mode `timervec` 會設定
+```text
+sip.SSIP = 1
+```
+產生一個 Supervisor software interrupt
+
+CPU 接受這個 interrupt 時，硬體會
+```text
+sepc = 被中斷的 user PC
+scause = Supervisor software interrupt
+sstatus.SPP = U-mode
+Privilege mode：U-mode -> S-mode
+PC = stvec
+```
+
+因為 `usertrapret()` 已將 `stvec` 設為 `uservec`，所以 CPU 會自動進入 `kernel/trampoline.S` 中的 `uservec`，
+這裡沒有 `call uservec`控制權轉移，是 CPU 接受 trap 後根據 `stvec` 自動完成
+
+### `uservec`：保存 user context
+進入 `uservec` 時，CPU 已位於 S-mode，但仍使用 user page table，registers 也仍是 user process 的內容，
+`uservec` 先將 user process 原本的 `a0` 保存到 `sscratch`
+```asm
+csrw sscratch, a0
+```
+
+接著讓 `a0` 指向固定的 `TRAPFRAME` 虛擬地址
+```asm
+li a0, TRAPFRAME
+```
+
+然後將 user registers 保存到目前 process 的 trapframe
+```asm
+sd ra, 40(a0)
+sd sp, 48(a0)
+...
+sd t6, 280(a0)
+```
+
+原本的 `a0` 則從 `sscratch` 取回並保存
+```asm
+csrr t0, sscratch
+sd t0, 112(a0)
+```
+
+完成 user registers 的保存後，`uservec` 從 trapframe 取得 kernel 執行環境
+```asm
+ld sp, 8(a0)
+ld tp, 32(a0)
+ld t0, 16(a0)
+ld t1, 0(a0)
+```
+
+其效果為
+```text
+sp = kernel stack
+tp = hart ID
+t0 = usertrap() 的地址
+t1 = kernel page table
+```
+
+接著切換至 kernel page table
+```asm
+sfence.vma zero, zero
+csrw satp, t1
+sfence.vma zero, zero
+```
+
+最後
+```asm
+jr t0
+```
+由於 `t0` 保存 `usertrap()` 的地址，因此 CPU 會進入 `usertrap()`
+
+### `usertrap()`：判斷 trap 原因
+`usertrap()` 首先確認 trap 來自 user mode
+```c
+if((r_sstatus() & SSTATUS_SPP) != 0)
+    panic("usertrap: not from user mode");
+```
+
+接著將 `stvec` 改為 `kernelvec`
+```c
+w_stvec((uint64)kernelvec);
+```
+
+因為現在已經進入 kernel，若 kernel 執行期間再次發生 trap，應該改由 `kernelvec` 處理，
+接著保存被中斷的 user PC
+```c
+p->trapframe->epc = r_sepc();
+```
+
+如果這次 trap 不是 system call，`usertrap()` 的話就會呼叫
+```c
+else if((which_dev = devintr()) != 0){
+    // interrupt 已被處理
+}
+```
+timer interrupt 因此會交給 `devintr()` 判斷跟處理
+
+### `devintr()`:辨識 timer interrupt
+`devintr()` 讀取 `scause`
+```c
+uint64 scause = r_scause();
+```
+
+因為 `timervec` 把 Machine timer interrupt 轉成 Supervisor software interrupt，因此
+```text
+scause = 0x8000000000000001
+```
+
+其中最高 bit 為 1，代表這是一個 interrupt；
+cause code 為 1，代表 Supervisor software interrupt
+
+所以會進入
+```c
+else if(scause == 0x8000000000000001L){
+    if(cpuid() == 0){
+        clockintr();
+    }
+
+    w_sip(r_sip() & ~2);
+    return 2;
+}
+```
+
+只有 CPU 0 呼叫 `clockintr()`，避免多個 hart 對全域 `ticks` 重複計數，接著
+```c
+w_sip(r_sip() & ~2);
+```
+
+將 `sip.SSIP` 清為 0，表示此次 Supervisor software interrupt 已處理完成，
+最後回傳 `2`，表示此次中斷是 timer interrupt
+
+### `clockintr()`:更新系統時間
+
+`clockintr()` 的內容如下
+```c
+void
+clockintr()
+{
+    acquire(&tickslock);
+    ticks++;
+    wakeup(&ticks);
+    release(&tickslock);
+}
+```
+
+他的工作有
+1. 取得保護 `ticks` 的 spinlock
+2. 將全域時間 `ticks` 加一
+3. 喚醒正在等待 `ticks` 改變的 process
+4. 釋放 spinlock
+
+用 `tickslock` 是為了避免同時存取 `ticks` 而產生 race condition，
+`devintr()` 回傳 `2` 後，`usertrap()` 會得知此次為 timer interrupt
+
+```c
+if(which_dev == 2)
+    implicityield();
+```
+
+目前 process 可能會讓出 CPU，讓 scheduler 選擇其他 process 執行，
+處理完成後，`usertrap()` 再次呼叫 `usertrapret()`，準備返回 user space
+
+### 小結
+`usertrapret()` 的工作是準備返回 user space，以及設定未來來自 user space 的 trap 入口，
+真正發生 interrupt 時，CPU 才會根據 `stvec` 進入 `uservec`，
+`uservec` 保存 user context 並切換至 kernel 環境，
+再由 `usertrap()`、`devintr()` 和 `clockintr()` 完成 timer interrupt 的處理
