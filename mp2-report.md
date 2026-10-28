@@ -501,3 +501,216 @@ if(which_dev == 2)
 真正發生 interrupt 時，CPU 才會根據 `stvec` 進入 `uservec`，
 `uservec` 保存 user context 並切換至 kernel 環境，
 再由 `usertrap()`、`devintr()` 和 `clockintr()` 完成 timer interrupt 的處理
+
+## Kernel Space Interrupt Handler
+
+```mermaid
+flowchart LR
+    A["usertrap()"]
+    B["stvec = kernelvec"]
+    C["S-mode kernel<br/>繼續執行"]
+    D["Timer interrupt<br/>sip.SSIP = 1"]
+    E["CPU 根據 stvec<br/>進入 kernelvec"]
+    F["保存 kernel registers"]
+    G["kerneltrap()"]
+    H["devintr()"]
+    I["clockintr()<br/>ticks++"]
+    J["可能執行<br/>implicityield()"]
+    K["恢復 sepc、sstatus<br/>與 kernel registers"]
+    L["sret"]
+
+    A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K --> L
+
+    classDef kernel fill:#dbeafe,stroke:#2563eb,color:#111827
+    classDef hardware fill:#fef3c7,stroke:#d97706,color:#111827
+    classDef handler fill:#ede9fe,stroke:#7c3aed,color:#111827
+
+    class A,B,C,G,H,I,J,K,L kernel
+    class D,E hardware
+    class F handler
+```
+
+### `usertrap()`:設定 kernel trap 入口
+CPU 從 user space 進入 `usertrap()` 後，已經位於 S-mode kernel，
+此時 `usertrap()` 會將 `stvec` 改為 `kernelvec`：
+```c
+w_stvec((uint64)kernelvec);
+```
+
+其效果等價
+```text
+stvec = kernelvec 的地址
+```
+同理，這個也只是設定未來 kernel 執行期間發生 trap 時的入口
+此外相同的概念，先前 CPU 從 user space 發生 trap 時，`stvec` 指向 `uservec`；
+進入 kernel 後，`stvec` 必須改為 `kernelvec`
+
+如果 kernel 執行期間又發生 timer interrupt，M-mode 的 `timervec` 會把
+```text
+sip.SSIP = 1
+```
+設定為 pending，CPU 接受此 Supervisor software interrupt 時，會由硬體保存 trap 資訊
+```text
+sepc = 被中斷的 kernel PC
+scause = Supervisor software interrupt
+sstatus.SPP = 1
+PC = stvec
+```
+
+因為此時
+```text
+stvec = kernelvec
+```
+所以 CPU 會自動進入 `kernel/kernelvec.S` 中的 `kernelvec`
+
+### `kernelvec`：保存 kernel registers
+進入 `kernelvec` 時，CPU 已位於 S-mode，並且正在使用目前 process 的 kernel stack，
+`kernelvec` 首先在 kernel stack 上保留 256 bytes
+```asm
+addi sp, sp, -256
+```
+這塊空間用來保存被中斷時的 kernel registers，接著將 registers 保存到 kernel stack
+```asm
+sd ra, 0(sp)
+sd sp, 8(sp)
+sd gp, 16(sp)
+sd tp, 24(sp)
+sd t0, 32(sp)
+...
+sd t6, 240(sp)
+```
+
+```
+note:
+kernel 執行期間的 trap 和 user trap 有不同的保存方式
+`uservec` 將 user registers 保存到 `p->trapframe`
+`kernelvec` 將 kernel registers 直接保存到目前的 kernel stack
+```
+
+### `kerneltrap()`:保存 trap 狀態
+`kerneltrap()` 首先保存三個重要的 Supervisor CSR
+```c
+uint64 sepc = r_sepc();
+uint64 sstatus = r_sstatus();
+uint64 scause = r_scause();
+```
+這三個 CSR 的用途
+| CSR       | 用途                           |
+| --------- | ------------------------------ |
+| `sepc`    | 保存 kernel 被中斷時的 PC      |
+| `sstatus` | 保存 trap 前的 Supervisor 狀態 |
+| `scause`  | 記錄此次 trap 的原因           |
+
+接著確認此次 trap 確實來自 S-mode
+```c
+if((sstatus & SSTATUS_SPP) == 0)
+    panic("kerneltrap: not from supervisor mode");
+```
+`SSTATUS_SPP` 不為 0，表示 trap 發生前 CPU 位於 Supervisor mode，
+接著確認進入 `kerneltrap()` 時 interrupt 已被關閉
+```c
+if(intr_get() != 0)
+    panic("kerneltrap: interrupts enabled");
+```
+CPU 接受 trap 時會自動關閉 Supervisor interrupt，避免在尚未保存完整狀態前再次接受其他 interrupt
+
+### 呼叫 `devintr()`
+`kerneltrap()` 使用
+```c
+if((which_dev = devintr()) == 0){
+    panic("kerneltrap");
+}
+```
+來呼叫 `devintr()` 判斷這次 trap 是否為已知的 device interrupt
+如果 `devintr()` 回傳 0，表示此次 trap 不是 xv6 能辨認的 device interrupt，
+所以 `kerneltrap()` 就會輸出 trap 資訊然後 `panic()`
+
+### `devintr()`：辨認 timer interrupt
+`devintr()` 先讀取
+```c
+uint64 scause = r_scause();
+```
+對於從 `timervec` 轉送的 timer interrupt
+```text
+scause = 0x8000000000000001
+```
+其中
+```text
+最高 bit = 1：表示 interrupt
+cause code = 1：Supervisor software interrupt
+```
+因此會進入
+```c
+else if(scause == 0x8000000000000001L){
+    if(cpuid() == 0){
+        clockintr();
+    }
+
+    w_sip(r_sip() & ~2);
+    return 2;
+}
+```
+只有 CPU 0 呼叫 `clockintr()`，以防止多個 hart 同時增加全域的 `ticks`
+
+接著
+```c
+w_sip(r_sip() & ~2);
+```
+會做清除
+```text
+sip.SSIP = 0
+```
+
+最後回傳值 2 表示此次為 timer interrupt
+```c
+return 2;
+```
+
+### `clockintr()`:更新系統時間
+CPU 0 會呼叫
+```c
+void
+clockintr()
+{
+    acquire(&tickslock);
+    ticks++;
+    wakeup(&ticks);
+    release(&tickslock);
+}
+```
+`clockintr()` 的工作有
+1. 取得保護 `ticks` 的 spinlock
+2. 將全域 `ticks` 加一
+3. 叫醒正在等待 `ticks` 改變的 process
+4. 釋放 spinlock
+
+### Timer interrupt 與 `implicityield()`
+`devintr()` 回傳 2 後，`kerneltrap()` 會判斷目前是否有正在執行的 process
+```c
+if(which_dev == 2 &&
+    myproc() != 0 &&
+    myproc()->state == RUNNING)
+    implicityield();
+```
+由於 `implicityield()` 可能執行 context switch，而且切換期間可能發生其他 trap，
+因此 `kerneltrap()` 在返回前必須恢復先前保存的
+```c
+w_sepc(sepc);
+w_sstatus(sstatus);
+```
+### 返回 `kernelvec`
+`kerneltrap()` 執行完成後，會返回 `kernelvec`，
+`kernelvec` 從 kernel stack 恢復先前保存的 registers
+```asm
+ld ra, 0(sp)
+ld sp, 8(sp)
+ld gp, 16(sp)
+...
+ld t6, 240(sp)
+```
+
+```
+note:
+`tp` 沒有被恢復，因為 `tp` 在 xv6 中保存目前 hart ID，
+而 process 在 `implicityield()` 過程中可能經過 CPU scheduling
+```
