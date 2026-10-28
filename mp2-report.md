@@ -714,3 +714,438 @@ note:
 `tp` 沒有被恢復，因為 `tp` 在 xv6 中保存目前 hart ID，
 而 process 在 `implicityield()` 過程中可能經過 CPU scheduling
 ```
+
+## Process State Mapping
+在 `proc.h`的第82行，定義了以下 process states
+```cpp
+enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+```
+
+| `procstate` | enum | Lecture-note state | 意義                                                                |
+| ----------- | ---: | ------------------ | ------------------------------------------------------------------- |
+| `UNUSED`    |    0 | 沒直接對應         | process table entry 還沒使用，或原本的 process 已被回收             |
+| `USED`      |    1 | `New`              | 已配置 process slot，但 process 仍在初始化，尚不能被 scheduler 執行 |
+| `SLEEPING`  |    2 | `Waiting`          | process 正在等待特定事件或資源                                      |
+| `RUNNABLE`  |    3 | `Ready`            | process 已準備好執行，正在等待 scheduler 分配 CPU                   |
+| `RUNNING`   |    4 | `Running`          | process 目前正在某個 CPU 上執行                                     |
+| `ZOMBIE`    |    5 | `Terminated`       | process 已結束，但 parent 尚未使用 `wait()` 回收其 exit status      |
+
+### Ready queue 與 waiting queue
+狀態為 `RUNNABLE` 的 process 會被放入全域的 `readylist`，等待 scheduler 分配 CPU，
+`pushreadylist(p)` 將 process 放到 ready list 尾端，而 `popreadylist()` 從 ready list 前端取出下一個 process
+
+狀態為 `SLEEPING` 的 process 則會被放入對應 channel 的 waiting queue，
+當事件完成時，`wakeup(chan)` 會將 process 從 waiting queue 取出，將狀態改為 `RUNNABLE`，
+再透過 `pushreadylist()` 放入 ready queue
+
+### New to Ready
+這段包含兩條 function path
+```text
+userinit() -> allocproc() -> pushreadylist()
+fork()/priorfork() -> allocproc() -> pushreadylist()
+```
+Lecture notes 的 `New -> Ready` 在 xv6 中實際為
+```text
+UNUSED -> USED -> RUNNABLE
+```
+`allocproc()` 先搜尋狀態為 `UNUSED` 的 process table entry，
+找到後配置 PID，並將狀態改為
+```c
+p->state = USED;
+```
+接著，`allocproc()` 會配置 trapframe、建立空的 user page table，並初始化 process context
+```c
+p->context.ra = (uint64)forkret;
+p->context.sp = p->kstack + PGSIZE;
+```
+因此 `allocproc()` 完成的是
+```text
+UNUSED -> USED
+```
+`userinit()` 使用 `allocproc()` 建立系統中的第一個 user process，
+它使用 `uvmfirst()` 建立第一個 user page並載入 initcode，接著設定初始 user PC 與 stack pointer
+```c
+p->trapframe->epc = 0;
+p->trapframe->sp = PGSIZE;
+```
+完成初始化後，`userinit()` 將 process 改為 `RUNNABLE`，並放進 ready queue
+```c
+p->state = RUNNABLE;
+pushreadylist(p);
+```
+`fork()` 與 `priorfork()` 也先呼叫 `allocproc()` 建立 child process，接著複製 parent 的 user memory、
+trapframe、open files 與 current working directory
+
+`priorfork()` 和一般 `fork()` 的主要差異，是它還會設定指定的 priority 與 state-log 選項
+```c
+np->priority = priority;
+np->statelogenabled = statelogenabled;
+```
+
+Child process 初始化完成後，兩者都會執行
+```c
+np->state = RUNNABLE;
+pushreadylist(np);
+```
+`pushreadylist()` 會為 process 建立一個 list node，並透過 `pushbackproclist()` 將 node 放到 ready list 尾端，
+它不會自行修改 process state，因此呼叫者必須先將 process 設為 `RUNNABLE`
+
+
+### Running to Ready
+當 timer interrupt 發生時，`usertrap()` 或 `kerneltrap()` 會透過 `devintr()` 判斷此次為 timer interrupt，
+接著呼叫 `implicityield()`，`implicityield()` 會使用目前的 `ticks` 與 process 的 `startrunningticks` 
+計算 process 已經執行多久
+```c
+if(ticks - p->startrunningticks >= 1) {
+    yield();
+}
+```
+在 `yield()` 中，會先取得目前 process 的 lock，再將 process state 從 `RUNNING` 改成 `RUNNABLE`
+```c
+p->state = RUNNABLE;
+procstatelog(p);
+pushreadylist(p);
+sched();
+```
+`pushreadylist(p)` 會建立一個 process list node，並將目前 process 放回 ready list 的尾端，
+但是`pushreadylist()` 本身不會修改 process state，因此必須先設定
+```c
+p->state = RUNNABLE;
+```
+接著 `yield()` 呼叫 `sched()`，`sched()` 會先確認目前持有 `p->lock`、interrupt 已關閉，
+而且 process state 已不再是 `RUNNING`，然後執行
+```c
+swtch(&p->context, &mycpu()->context);
+```
+
+這次 `swtch()` 會將目前 process 的 kernel context 保存到 `p->context`，再載入 scheduler 的 context，
+使 CPU 從目前 process 切換回 scheduler
+
+### Running to Waiting
+這裡用 `sleep` system call 當例子說明，整個 function path 大概是
+```text
+sys_sleep() -> sleep() -> sched() -> swtch()
+```
+`sys_sleep()` 先取得 user program 要求睡眠的 tick 數，並記錄目前的 `ticks`
+```c
+uint ticks0;
+
+argint(0, &n);
+acquire(&tickslock);
+ticks0 = ticks;
+```
+接著只要經過的時間還沒達到指定的 tick 數，就會呼叫：
+
+```c
+sleep(&ticks, &tickslock);
+```
+
+```
+note:
+雖然程式外層使用 while loop，但這不是 busy waiting
+Process 每次呼叫 `sleep()` 後都會進入 `SLEEPING` 狀態並讓出 CPU
+不會持續占用 CPU 檢查 `ticks`。
+```
+
+`sleep()` 首先取得目前 process
+```c
+struct proc *p = myproc();
+```
+接著取得 `p->lock`，並尋找或建立 `chan` 對應的 channel
+```c
+acquire(&p->lock);
+
+if((cn = findchannel(chan)) == 0 &&
+   (cn = allocchannel(chan)) == 0) {
+    panic("sleep: allocchannel");
+}
+```
+在取得 `p->lock` 後，才釋放呼叫者傳入的 lock
+```c
+release(lk);
+```
+
+接著，`sleep()` 記錄 process 正在等待的 channel，並將狀態從 `RUNNING` 改成 `SLEEPING`
+```c
+p->chan = chan;
+p->state = SLEEPING;
+procstatelog(p);
+```
+然後為 process 建立一個 process list node，並將它放入該 channel 的 waiting queue
+```c
+pn = allocproclistnode(p);
+pushbackproclist(&cn->pl, pn);
+```
+此時 process 不在 ready queue，而是在 `ticks` channel 對應的 waiting queue 中
+
+最後呼叫
+```c
+sched();
+```
+
+`sched()` 會執行：
+```c
+swtch(&p->context, &mycpu()->context);
+```
+保存目前 process 的 kernel context，再載入 scheduler context，使 process 讓出 CPU
+
+### Waiting to Ready
+這段的 function path 為
+```text
+clockintr() -> wakeup()
+```
+每次 timer interrupt 發生時，CPU 0 會呼叫 `clockintr()`
+
+```c
+void
+clockintr()
+{
+    acquire(&tickslock);
+    ticks++;
+    wakeup(&ticks);
+    release(&tickslock);
+}
+```
+`clockintr()` 首先取得 `tickslock`，再將全域的 `ticks` +1
+```cpp
+ticks++;
+```
+
+接著呼叫
+```c
+wakeup(&ticks);
+```
+
+`wakeup()` 首先使用
+```c
+cn = findchannel(chan);
+```
+尋找與 `chan` 對應的 channel，
+如果找不到，代表目前沒有 process 正在等待此 channel，因此直接返回
+
+如果找到 channel，`wakeup()` 會透過
+```c
+while((pn = popfrontproclist(&cn->pl)) != 0){
+    ...
+}
+```
+從這個 channel 的 waiting queue 取出每個 process node，
+這一步會先將 process 從 waiting queue 移除，之後再把它改成 `RUNNABLE` 並加入 ready queue
+
+
+取得 node 中保存的 process 後，先釋放該 list node，再取得 process lock：
+```c
+p = pn->p;
+freeproclistnode(pn);
+acquire(&p->lock);
+```
+
+接著確認
+- Process 不是目前正在執行 `wakeup()` 的 process
+- Process state 為 `SLEEPING`
+- Process 等待的 channel 與傳入的 `chan` 相同
+
+確認完成後，將 process state 從 `SLEEPING` 改成 `RUNNABLE`，並放入 ready queue：
+
+```c
+p->state = RUNNABLE;
+procstatelog(p);
+pushreadylist(p);
+```
+所以 process 會從 waiting queue 移動到 ready queue：
+
+當 waiting queue 中的 process 都被移除後，該 channel 已經沒有 process 等待，因此會被標示為未使用
+```c
+cn->used = 0;
+```
+
+### Running to Terminated
+這段的 function path 為
+```text
+sys_exit() -> exit() -> sched() -> swtch()
+```
+當 user process 呼叫 `exit(status)` system call 時，kernel 會先進入 `sys_exit()`，
+`sys_exit()` 從 system-call argument 取得 process 的 exit status
+```c
+uint64
+sys_exit(void)
+{
+    int n;
+    argint(0, &n);
+    exit(n);
+    return 0;
+}
+```
+其中 `n` 是 user process 傳入的 exit status。接著，`sys_exit()` 呼叫 kernel 中的
+```c
+exit(n);
+```
+
+`exit()` 首先取得目前 process
+```c
+struct proc *p = myproc();
+```
+
+並確認目前 process 不是 `initproc`
+```c
+if(p == initproc)
+    panic("init exiting");
+```
+
+`initproc` 負責接收失去 parent 的 process，因此 xv6 不允許它結束，
+接著 `exit()` 關閉 process 所有已開啟的 files
+```c
+for(int fd = 0; fd < NOFILE; fd++){
+    if(p->ofile[fd]){
+        struct file *f = p->ofile[fd];
+        fileclose(f);
+        p->ofile[fd] = 0;
+    }
+}
+```
+然後釋放 process 對 current working directory 的 reference
+```c
+begin_op();
+iput(p->cwd);
+end_op();
+p->cwd = 0;
+```
+接著取得 `wait_lock`，並呼叫
+```c
+reparent(p);
+```
+把目前 process 的 children 交給 `initproc`，避免它們在 parent 結束後變成沒有 parent 的 process
+因為 Parent 可能正在 `wait()` 中等待 child 結束，所以 `exit()` 也會執行
+```c
+wakeup(p->parent);
+```
+完成處理後，`exit()` 取得目前 process 的 lock，保存 exit status，
+並把 process state 從 `RUNNING` 改成 `ZOMBIE`
+```c
+p->xstate = status;
+p->state = ZOMBIE;
+procstatelog(p);
+```
+
+最後
+```c
+sched();
+```
+
+`sched()` 執行
+```c
+swtch(&p->context, &mycpu()->context);
+```
+保存目前 process 的 context，並切換回 scheduler
+
+`ZOMBIE` process 不會被放入 ready queue，因此 scheduler 不會再次選中它，
+`exit()` 中的 `sched()` 理論上不會返回，所以後面使用
+```c
+panic("zombie exit");
+```
+
+Process 進入 `ZOMBIE` 後仍會保留 exit status，等待 parent 呼叫 `wait()`。Parent 完成回收後，
+`freeproc()` 會釋放 process 的剩餘資源，並將狀態改成
+```text
+ZOMBIE -> UNUSED
+```
+
+### Ready to Running
+
+每個 CPU 在初始化完成後都會進入
+```c
+scheduler();
+```
+
+`scheduler()` 使用無限迴圈持續選擇下一個可以執行的 process
+```c
+for(;;){
+    intr_on();
+    ...
+}
+```
+
+Scheduler 開啟 interrupt，避免在沒有 process 可執行時阻止 device interrupt，接著呼叫
+```c
+p = popreadylist();
+```
+`popreadylist()` 會從 ready list 的前端取出一個 process node
+```c
+if((pn = popfrontproclist(&readylist)) == 0){
+    return 0;
+}
+```
+如果 ready list 為空，`popreadylist()` 回傳 0，scheduler 便繼續下一次迴圈
+```c
+if((p = popreadylist()) == 0){
+    continue;
+}
+```
+如果成功取得 process，`popreadylist()` 會取出 node 中的 process pointer、free list node，再回傳 process
+```c
+p = pn->p;
+freeproclistnode(pn);
+return p;
+```
+
+Scheduler 取得 process 後，先取得 `p->lock`，並確認 process state 為 `RUNNABLE`
+```c
+acquire(&p->lock);
+
+if(p->state != RUNNABLE)
+    panic("scheduler: p->state != RUNNABLE");
+```
+
+接著記錄 process 開始執行的時間，並將 state 從 `RUNNABLE` 改成 `RUNNING`
+```c
+p->startrunningticks = ticks;
+p->state = RUNNING;
+c->proc = p;
+procstatelog(p);
+```
+
+完成狀態設定後，scheduler 執行
+```c
+swtch(&c->context, &p->context);
+```
+這次 `swtch()` 會保存 scheduler context，並載入 process context，使 CPU 開始或繼續執行這個 process
+這個過程完成就會
+```text
+RUNNABLE -> RUNNING
+```
+
+### `swtch()` 的作用
+`swtch()` 位於 `kernel/swtch.S`，它不負責選擇 process，也不會修改 process state，只負責保存及載入 context，
+它會將目前的 callee-saved registers 保存到 old context
+```asm
+sd ra, 0(a0)
+sd sp, 8(a0)
+sd s0, 16(a0)
+...
+sd s11, 104(a0)
+```
+
+接著從 new context 載入 registers
+```asm
+ld ra, 0(a1)
+ld sp, 8(a1)
+ld s0, 16(a1)
+...
+ld s11, 104(a1)
+```
+
+最後
+```asm
+ret
+```
+
+因為 `ra` 已從 new context 載入，所以 `ret` 之後會從新的 context 繼續執行
+
+兩個 context-switch 方向分別為
+```c
+// Process 切換回 scheduler
+swtch(&p->context, &mycpu()->context);
+
+// Scheduler 切換到 process
+swtch(&c->context, &p->context);
+```
